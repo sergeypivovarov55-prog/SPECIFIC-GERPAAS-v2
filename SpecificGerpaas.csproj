@@ -58,15 +58,12 @@
     <Compile Include="Commands\CmdExportGerpaasSpec.cs" />
     <Compile Include="Commands\CmdSyncOrCreateSpecsDkc.cs" />
     <Compile Include="Core\ArticleBuilder.cs" />
+    <Compile Include="Core\ArticleFormat.cs" />
     <Compile Include="Core\DkcComboManager.cs" />
-    <Compile Include="Core\FittingModel.cs" />
     <Compile Include="Core\Log.cs" />
-    <Compile Include="Core\ParamHelper.cs" />
     <Compile Include="Core\RevitUtils.cs" />
     <Compile Include="Core\ScheduleExporter.cs" />
-    <Compile Include="Core\SizeHelper.cs" />
     <Compile Include="Core\SpecSynchronizer.cs" />
-    <Compile Include="Core\TrayModel.cs" />
     <Compile Include="Data\CatalogSqlite.cs" />
     <Compile Include="Data\SpecRepository.cs" />
     <Compile Include="Models\SpecRow.cs" />
@@ -76,20 +73,19 @@
   </ItemGroup>
   <!-- Прочие файлы -->
   <ItemGroup>
-    <None Include="AGENTS.md" />
     <None Include="Data\gerpaas.db">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="Data\GERP_param_map.ini">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="docs\AGENTS.md" />
+    <None Include="docs\ROADMAP.md" />
     <None Include="packages.config" />
-    <None Include="ROADMAP.md" />
     <None Include="SpecificGerpaas.addin">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="SpecificGerpaas.dll.config" />
-    <None Include="Дополнение в AGENTS.md и ROADMAP.md" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\DKC16.png" />
@@ -110,6 +106,9 @@
     <PackageReference Include="SQLitePCLRaw.provider.dynamic_cdecl">
       <Version>2.1.5</Version>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="docs\Note to AGENTS&amp;ROADMAP.txt" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

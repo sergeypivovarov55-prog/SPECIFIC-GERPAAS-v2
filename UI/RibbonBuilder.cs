@@ -122,6 +122,10 @@ namespace SpecificGerpaas
                 ?? comboMetal.GetItems()[0];
             comboMetal.Current = coatItem;
 
+            DkcComboManager.ThicknessCombo = comboThk;
+            DkcComboManager.CoatingCombo = comboMetal;
+
+
             // Обновление INI при изменении
             comboMetal.CurrentChanged += (s, e) =>
             {
@@ -133,27 +137,27 @@ namespace SpecificGerpaas
             // --- Кнопка "Специфікація із DKC" ---
             var pbdSyncDkc = new PushButtonData(
                 "SGP_SyncSpecsDkc",
-                "DKC -> GERPAAS",
+                "GERPAAS",
                 Assembly.GetExecutingAssembly().Location,
                 "SpecificGerpaas.Commands.CmdSyncOrCreateSpecsDkc");
 
             var btnSyncDkc = panel.AddItem(pbdSyncDkc) as PushButton;
-            btnSyncDkc.ToolTip = "Заповнити специфікацію GERPAAS із DKC";
+            btnSyncDkc.ToolTip = "Заповнити специфікацію GERPAAS із елементів DKC";
 
             btnSyncDkc.LargeImage = ImageLoader.FromEmbedded(
-                "SpecificGerpaas.Resources.DKC32.png",
-                "Resources.DKCP32.png",
-                "DKC32.png");
+                "SpecificGerpaas.Resources.GERP32.png",
+                "Resources.GERP32.png",
+                "GERP32.png");
 
             btnSyncDkc.Image = ImageLoader.FromEmbedded(
-                "SpecificGerpaas.Resources.DKC16.png",
-                "Resources.DKC16.png",
-                "DKC16.png");
+                "SpecificGerpaas.Resources.GERP16.png",
+                "Resources.GERP16.png",
+                "GERP16.png");
         
             // --- Кнопка "Експорт специфікації" ---
             var pbdExp = new PushButtonData(
                 "SGP_ExportSpecs",
-                "GE_Specific -> Excel",
+                "Excel",
                 Assembly.GetExecutingAssembly().Location,
                 "SpecificGerpaas.Commands.CmdExportGerpaasSpec");
 

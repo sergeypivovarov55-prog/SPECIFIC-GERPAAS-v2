@@ -37,5 +37,37 @@ namespace SpecificGerpaas.Utils
             return 0;
         }
 
+        public static int GetIntParam(Element e, string paramName)
+        {
+            var param = e.LookupParameter(paramName);
+            return param?.AsInteger() ?? 0;
+        }
+
+        public static double GetDoubleParam(Element e, string paramName)
+        {
+            var param = e.LookupParameter(paramName);
+            return param?.AsDouble() * 304.8 ?? 0; // футы → мм
+        }
+
+        public static string GetTextParam(Element e, string paramName)
+        {
+            var param = e.LookupParameter(paramName);
+            return param?.AsString() ?? "";
+        }
+
+        public static bool HasParam(Element element, string paramName)
+        {
+            return element?.LookupParameter(paramName) != null;
+        }
+
+        public static void SetNumberParam(Element element, string paramName, double value)
+        {
+            var param = element?.LookupParameter(paramName);
+            if (param != null && !param.IsReadOnly && param.StorageType == StorageType.Double)
+            {
+                param.Set(value);
+            }
+        }
+
     }
 }

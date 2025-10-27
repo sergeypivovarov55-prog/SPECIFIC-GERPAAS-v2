@@ -1,16 +1,8 @@
 ﻿// -----------------------------------------------------------------------------
 // ArticleBuilder.cs  (версия 3.0)
 // -----------------------------------------------------------------------------
-// Формирует артикулы для лотков, углов, крышек и т.д.
-// Поддерживает правила:
-//  - Углы: не добавляем угол в конец (он зашит в BaseArticle);
-//  - Крышки: не добавляем высоту и угол;
-//  - Лотки: полный формат.
-// -----------------------------------------------------------------------------
-using Autodesk.Revit.DB;
-using SpecificGerpaas.Utils;
+
 using System;
-using System.Globalization;
 
 namespace SpecificGerpaas.Core
 {
@@ -22,23 +14,10 @@ namespace SpecificGerpaas.Core
             if (string.IsNullOrWhiteSpace(baseArticle))
                 return "";
 
-            // --- Код покрытия ---
-            string metalCode = "PG"; // default
-            if (!string.IsNullOrEmpty(metal))
-            {
-                var low = metal.ToLowerInvariant();
-                if (low.Contains("цинк"))
-                    metalCode = "HDG";
-                else if (low.Contains("сендз"))
-                    metalCode = "PG";
-                else if (low.Contains("алюм"))
-                    metalCode = "AL";
-            }
-
-            // --- Преобразование размеров ---
-            string widthCm = (w / 10).ToString(); // 200 → 20
-            string heightPart = "A" + h.ToString(); // 100 → A100
-            string thickPart = thicknessMm.ToString("0.0", new CultureInfo("uk-UA"));
+            string metalCode = ToMetalCode(metal);           // --- Вызов помощника для кода покрытия
+            string widthCm = ToCm(w).ToString();             // --- Вызов помощника для преобразования размера ширины
+            string heightPart = "A" + h.ToString();          // --- Вызов помощника для преобразования размера высоты
+            string thickPart = FormatThick(thicknessMm);     // --- Вызов помощника для преобразования размера толщины
 
             // --- Определяем тип по BaseArticle ---
             string lowBase = baseArticle.ToLowerInvariant();
@@ -53,12 +32,14 @@ namespace SpecificGerpaas.Core
             else
                 result = baseArticle + "-";
 
+            // --- Крышки ---
             if (isCover)
             {
-                // --- крышки ---
-                // GE-KTK1-20-1,2-HDG   ← крышка на прямой участок
-                // GE-DK-20-1,2-HDG     ← крышка на 90°
-                // GE-DK45-20-1,2-HDG   ← крышка на 45°
+                // GE-KTK1-20-1,2-HDG       ← крышка на прямой участок
+                // GE-DK-20-1,2-HDG         ← крышка на 90°
+                // GE-DK45-20-1,2-HDG       ← крышка на 45°
+                // GE-GE-OBK90-20-1,2-HDG   ← крышка на 90°
+                // GE-GE-OBK45-20-1,2-HDG   ← крышка на 45°
 
                 string anglePart = "";
 
@@ -70,6 +51,28 @@ namespace SpecificGerpaas.Core
                         // убираем дефис, если baseArticle заканчивается на "-"
                         baseArticle = baseArticle.TrimEnd('-');
                         anglePart = "45";
+                    }
+                }
+
+                // --- Внешняя крышка GE-OBK ---
+                if (baseArticle.StartsWith("GE-OBK", StringComparison.OrdinalIgnoreCase) && angle.HasValue)
+                {
+                    int angInt = (int)Math.Round(angle.Value);
+                    if (angInt == 45 || angInt == 90)
+                    {
+                        baseArticle = baseArticle.TrimEnd('-');
+                        anglePart = angInt.ToString();
+                    }
+                }
+
+                // --- Внутренняя крышка GE-IBK ---
+                if (baseArticle.StartsWith("GE-IBK", StringComparison.OrdinalIgnoreCase) && angle.HasValue)
+                {
+                    int angInt = (int)Math.Round(angle.Value);
+                    if (angInt == 45 || angInt == 90)
+                    {
+                        baseArticle = baseArticle.TrimEnd('-');
+                        anglePart = angInt.ToString();
                     }
                 }
 
@@ -126,73 +129,30 @@ namespace SpecificGerpaas.Core
                 result = result.Replace("--", "-");
             result = result.Trim('-');
 
+            // ---------- DEFAULT / FALLBACK ----------
+
             return result;
         }
 
-        // Универсальный билдер угловых элементов
-            public static string BuildBendArticle(Element e, string famName, double thicknessMm, string metal)
-            {
-                // --- Код покрытия ---
-                string metalCode = "PG"; // default
-                if (!string.IsNullOrEmpty(metal))
-                {
-                    var low = metal.ToLowerInvariant();
-                    if (low.Contains("цинк"))
-                        metalCode = "HDG";
-                    else if (low.Contains("сендз"))
-                        metalCode = "PG";
-                    else if (low.Contains("алюм"))
-                        metalCode = "AL";
-                }
+        // ---------------------- ПОМОЩНИКИ ----------------------
+        // Единые помощники для формата артикула
+        private static string ToMetalCode(string metal)
+        {
+            if (string.IsNullOrEmpty(metal)) return "PG";
+            var low = metal.ToLowerInvariant();
+            if (low.Contains("занур")) return "HDG";   // «Гаряче цинкування»
+            if (low.Contains("сендз")) return "PG";    // «Сендзимір»
+            if (low.Contains("алюм")) return "AL";
+            return "PG";
+        }
 
-                // --- Получаем размеры и угол ---
-                int w, h;
-                double? angle;
-                SizeHelper.GetWidthHeightAndAngle(e, out w, out h, out angle);
+        private static string FormatThick(double mm)
+        {
+            // Всегда "X,X" с запятой
+            return mm.ToString("0.0", new System.Globalization.CultureInfo("uk-UA"));
+        }
 
-                string thickPart = thicknessMm.ToString("0.0", new CultureInfo("uk-UA"));
-                thickPart = thickPart.Replace(",", ".");
+        private static int ToCm(int mm) => mm / 10; // 200 → 20
 
-                // ---------- 1. Horizontal Bend_CPO45-CPO90 ----------
-                if (famName.Contains("Horizontal Bend_CPO45-CPO90"))
-                {
-                    string prefix = (angle ?? 90) >= 80 ? "GE-KT2-D90-" : "GE-KT2-D45-";
-                    return $"{prefix}{w / 10}-A{h}-{thickPart}-{metalCode}";
-                }
-
-                // ---------- 2. Horizontal Bend_CPO0-45 ----------
-                if (famName.Contains("Horizontal Bend_CPO0-45"))
-                {
-                    return $"GE-YDK-{h}-{thickPart}-{metalCode}";
-                }
-
-                // ---------- 3. Int Vertical Bend_CS45-CS90 ----------
-                if (famName.Contains("Int Vertical Bend_CS45-CS90"))
-                {
-                    string prefix = (angle ?? 90) >= 80 ? "GE-KT2-IB90-" : "GE-KT2-IB45-";
-                    return $"{prefix}{w / 10}-A{h}-{thickPart}-{metalCode}";
-                }
-
-                // ---------- 4. Int Vertical Bend_1-89 ----------
-                if (famName.Contains("Int Vertical Bend_1-89"))
-                {
-                    return $"GE-KT2-IBF-{w / 10}-A{h}-{thickPart}-{metalCode}";
-                }
-
-                // ---------- 5. Ext Vertical Bend_CD45-CD90 ----------
-                if (famName.Contains("Ext Vertical Bend_CD45-CD90"))
-                {
-                    string prefix = (angle ?? 90) >= 80 ? "GE-KT2-OB90-" : "GE-KT2-OB45-";
-                    return $"{prefix}{w / 10}-A{h}-{thickPart}-{metalCode}";
-                }
-
-                // ---------- 6. Ext Vertical Bend_1-89 ----------
-                if (famName.Contains("Ext Vertical Bend_1-89"))
-                {
-                    return $"GE-KT2-OBF-{w / 10}-A{h}-{thickPart}-{metalCode}";
-                }
-
-                return null;
-            } 
     }
 }

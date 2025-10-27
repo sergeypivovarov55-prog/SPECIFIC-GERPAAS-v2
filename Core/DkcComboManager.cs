@@ -5,6 +5,7 @@ using System.Linq;
 using SpecificGerpaas.Utils;
 using System.Text;
 using System.Text.RegularExpressions;
+using Autodesk.Revit.UI;
 
 namespace SpecificGerpaas.Core
 {
@@ -15,8 +16,8 @@ namespace SpecificGerpaas.Core
     {
         private static string _iniPath;
         private static IniFile _ini;
-        private static bool _iniLoaded = false;
-
+        public static ComboBox ThicknessCombo { get; set; }
+        public static ComboBox CoatingCombo { get; set; }
         public static void Init()
         {
             try
@@ -74,14 +75,14 @@ namespace SpecificGerpaas.Core
         public static List<string> GetCoatList()
         {
             string s = _ini != null ? _ini.Read("CoatSet", "Combobocks_Setting") : null;
-            if (string.IsNullOrWhiteSpace(s)) s = "Сендзимір | Гарячий цинк";
+            if (string.IsNullOrWhiteSpace(s)) s = "Сендзимир | Занурення";
 
             var list = s.Split('|')
                         .Select(x => x.Trim())
                         .Where(x => !string.IsNullOrWhiteSpace(x))
                         .ToList();
 
-            //Log.Info("[DkcComboManager] Покрытия: " + string.Join(", ", list.ToArray()));
+            //Log.Info("[DkcComboManager] Покриття: " + string.Join(", ", list.ToArray()));
             return list;
         }
 
@@ -212,6 +213,31 @@ namespace SpecificGerpaas.Core
 
             Log.Info("[DkcComboManager] TrayWidth не задан или некорректен — используем 3000 мм");
             return 3000;
+        }
+
+        public static string GetSelectedThickness()
+        {
+            // если комбо ещё не назначен — fallback в ini
+            if (ThicknessCombo == null)
+                return GetThkCurrent();
+
+            var selected = ThicknessCombo.Current?.ItemText;
+            if (string.IsNullOrWhiteSpace(selected))
+                return GetThkCurrent();
+
+            return selected.Trim();
+        }
+
+        public static string GetSelectedCoating()
+        {
+            if (CoatingCombo == null)
+                return GetCoatCurrent();
+
+            var selected = CoatingCombo.Current?.ItemText;
+            if (string.IsNullOrWhiteSpace(selected))
+                return GetCoatCurrent();
+
+            return selected.Trim();
         }
 
     }

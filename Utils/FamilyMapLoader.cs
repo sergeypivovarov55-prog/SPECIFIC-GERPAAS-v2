@@ -96,11 +96,11 @@ namespace SpecificGerpaas.Core
                     count++;
                 }
 
-                Log.Info($"[FamilyMap] Загружено записей: {count}");
+                Log.Info($"[FamilyMap] Завантажено записів: {count}");
             }
             catch (Exception ex)
             {
-                Log.Error("[FamilyMap] Ошибка загрузки: " + ex.Message);
+                Log.Error("[FamilyMap] Помилка завантаження: " + ex.Message);
             }
 
             return map;

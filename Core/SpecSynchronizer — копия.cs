@@ -60,7 +60,7 @@ namespace SpecificGerpaas.Core
 
             _thicknessMm = ParseThicknessMm(thkText);
             _metal = matText;
-            Log.Info("=================================");
+            Log.Info("   ");
             Log.Info($"===== Старт з параметрами користувача: Thk={_thicknessMm} мм, Metal='{_metal}' =====");
 
             // --- FamilyMap.ini (рядом с DLL: ..\Data\GERP_param_map.ini) ---
@@ -141,7 +141,6 @@ namespace SpecificGerpaas.Core
             }
         }
 
-// ===========================================================================================================
         private void ProcessOne(Element e)
         {
             if (e == null) return;
@@ -153,9 +152,51 @@ namespace SpecificGerpaas.Core
 
                 string famName = ElementHelper.GetFamilyName(e);
 
-                // --------------------------------------------------------------------------------------------
-                // 1) РЕДУКЦІЇ R / RL / RR 
-                // --------------------------------------------------------------------------------------------
+                // Вначале - ACCESSORIES — 3-я категорія, GE-AX-
+                if (IsAccessory(famName))
+                {
+                    SaveAccessoryInfo(e); // збираємо деталі у accessories_raw.ini
+
+                    // Визначення типу (для GE_Найменування)
+                    string typeName = "-";
+                    if (e is FamilyInstance fiAcc)
+                        typeName = fiAcc.Symbol?.Name ?? "-";
+
+                    string typeUa = TranslateAccessoryType(typeName);
+
+                    // Запис параметрів у модель
+                    ParamHelper.SetTextParam(e, "GE_Артикул", "GE-AX-");
+                    ParamHelper.SetTextParam(e, "GE_Категорія", "3. Монтажні вироби");
+                    ParamHelper.SetTextParam(e, "GE_Найменування", $"Аксесуар ({typeUa})");
+                    ParamHelper.SetTextParam(e, "GE_Кількість", "1");
+                    ParamHelper.SetTextParam(e, "DKC_Единица измерения", "шт.");
+
+                    CountByCategory("3. Монтажні вироби");
+                    _countProcessed++;
+                    return;
+                }
+
+                // --- Имя семейства читаем из Dictionary<string, FamilyMapRecord> ---
+                FamilyMapRow fm;
+
+                bool fmOk = _familyMap.TryGetValue(famName, out fm);
+                if (!fmOk)
+                {
+                    if (!IsAccessory(famName)) // аксессуары пропускаем без ошибки
+                        Log.Warn($"[MAP] Немає мапінгу для сімейства '{famName}' (ElementId={e.Id})");
+
+                    // всё равно нельзя продолжать дальше – нет мапінгу => выходим
+                    return;
+                }
+
+                string baseArticle = fm.BaseArticle ?? "";
+                string category = fm.Category ?? "";
+                // --- Размеры + угол (для большинства правил нужны) ---
+                int w, h;
+                double? ang;
+                SizeHelper.GetWidthHeightAndAngle(e, out w, out h, out ang);
+
+                // 1) РЕДУКЦІЇ R / RL / RR — пріоритет №1
                 if (famName.Equals("470_DKC_S5_Lightweight Reducer", StringComparison.OrdinalIgnoreCase))
                 {
                     // ----- Перевірка висоти -----
@@ -212,7 +253,6 @@ namespace SpecificGerpaas.Core
                     ParamHelper.SetTextParam(e, "GE_Артикул", reducerArticle);
                     ParamHelper.SetTextParam(e, "GE_Категорія", "2. З'єднувальні деталі");
                     //ParamHelper.SetTextParam(e, "GE_Кількість", "2"); // Редукція у комплекті — 2 шт.
-                    MassHelper.SetMassFromDb(e, reducerArticle);
 
                     // ----- Найменування з БД (якщо є) -----
                     CatalogRow row;
@@ -230,9 +270,7 @@ namespace SpecificGerpaas.Core
                     return;
                 }
 
-                // --------------------------------------------------------------------------------------------
                 // 2) З’ЄДНУВАЧІ YDE / SDE
-                // --------------------------------------------------------------------------------------------
                 if (famName.Equals("470_DKC_S5_Horizontal Bend_CPO0-45", StringComparison.OrdinalIgnoreCase) ||
                     famName.Equals("470_DKC_S5_Int Vertical Bend_1-89", StringComparison.OrdinalIgnoreCase) ||
                     famName.Equals("470_DKC_S5_Ext Vertical Bend_1-89", StringComparison.OrdinalIgnoreCase))
@@ -284,7 +322,6 @@ namespace SpecificGerpaas.Core
                     {
                         ParamHelper.SetTextParam(e, "GE_Артикул", ydeSdeArticle);
                         ParamHelper.SetTextParam(e, "GE_Категорія", "2. З'єднувальні деталі");
-                        MassHelper.SetMassFromDb(e, ydeSdeArticle);
 
                         // найменування из БД (если есть)
                         CatalogRow row;
@@ -306,70 +343,24 @@ namespace SpecificGerpaas.Core
                     }
                 }
 
-                // Исключение: не показывать CPO0-45 (изделие без аналога в GERPAAS)
-                if (famName.Equals("470_DKC_S5_Horizontal Bend_Cover_CPO0-45", StringComparison.OrdinalIgnoreCase))
+                // 3) ACCESSORIES — збираємо та тимчасово додаємо в специфікацію
+                if (famName.Equals("999_DKC_Accessories", StringComparison.OrdinalIgnoreCase))
                 {
-                    ParamHelper.SetTextParam(e, "GE_Варіант", "Не показувати");
-                    //SetParam(e, "GE_Варіант", "Не показувати");
-                    return;
-                }
+                    SaveAccessoryInfo(e); // зберегти у accessories_raw.ini
 
-
-                // --------------------------------------------------------------------------------------------
-                // 3) ACCESSORIES — 3-я категорія, GE-AX-
-                // --------------------------------------------------------------------------------------------
-                if (IsAccessory(famName))
-                {
-                    SaveAccessoryInfo(e); // збираємо деталі у accessories_raw.ini
-
-                    // Визначення типу (для GE_Найменування)
-                    string typeName = "-";
-                    if (e is FamilyInstance fiAcc)
-                        typeName = fiAcc.Symbol?.Name ?? "-";
-
-                    string typeUa = TranslateAccessoryType(typeName);
-
-                    // Запис параметрів у модель
+                    // Запис у специфікаційні параметри
                     ParamHelper.SetTextParam(e, "GE_Артикул", "GE-AX-");
                     ParamHelper.SetTextParam(e, "GE_Категорія", "3. Монтажні вироби");
-                    ParamHelper.SetTextParam(e, "GE_Найменування", $"Аксесуар ({typeUa})");
+                    ParamHelper.SetTextParam(e, "GE_Найменування", "Невідомий аксесуар");
                     ParamHelper.SetTextParam(e, "GE_Кількість", "1");
                     ParamHelper.SetTextParam(e, "DKC_Единица измерения", "шт.");
-                    MassHelper.SetMassFromDb(e, "GE-AX-");
 
                     CountByCategory("3. Монтажні вироби");
                     _countProcessed++;
                     return;
                 }
 
-                // --------------------------------------------------------------------------------------------
-                // 4) FamilyMap - Имя семейства читаем из Dictionary<string, FamilyMapRecord> ---
-                // --------------------------------------------------------------------------------------------
-                FamilyMapRow fm;
-
-                bool fmOk = _familyMap.TryGetValue(famName, out fm);
-                if (!fmOk)
-                {
-                    // семейства нет в мапе – отправляем в DEFAULT как "4. Інші"
-                    fm = new FamilyMapRow
-                    {
-                        BaseArticle = "",
-                        Category = "4. Інші",
-                        Additional = ""
-                    };
-                    // не возвращаемся – идём дальше к DEFAULT
-                }
-
-                string baseArticle = fm.BaseArticle ?? "";
-                string category = fm.Category ?? "";
-                // --- Размеры + угол (для большинства правил нужны) ---
-                int w, h;
-                double? ang;
-                SizeHelper.GetWidthHeightAndAngle(e, out w, out h, out ang);
-
-                // --------------------------------------------------------------------------------------------
-                // 5) DEFAULT – стандартна побудова артикула
-                // --------------------------------------------------------------------------------------------
+                // 4) DEFAULT – стандартна побудова артикула
                 {
                     string cat = string.IsNullOrWhiteSpace(fm.Category) || fm.Category == "-"
                         ? "4. Інші"
@@ -384,9 +375,6 @@ namespace SpecificGerpaas.Core
 
                     ParamHelper.SetTextParam(e, "GE_Артикул", finalArticle);
                     ParamHelper.SetTextParam(e, "GE_Категорія", cat);
-                    //string massFromDb = DbHelper.GetMassByArticle(finalArticle);
-                    //ParamHelper.SetTextParam(e, "GE_Маса_одиниці", massFromDb);
-                    MassHelper.SetMassFromDb(e, finalArticle);
 
                     ApplyQuantityAndUnitByCategory(e, cat);
 
@@ -412,10 +400,6 @@ namespace SpecificGerpaas.Core
                 _countErrors++;
             }
         }
-
-        // ============================== End ProcessOne  ===============================================================
-
-        // ============================  ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ  ========================================================
 
         // Количество и единицы измерения строго по GE_Категорія:
         // 1.* → метры (0),  2.* → штуки (1),  3.* → штуки (1).
@@ -646,7 +630,14 @@ namespace SpecificGerpaas.Core
         }
     }
 
-// ================  ВСПОМОГАТЕЛЬНЫЕ ТИПЫ  ====================
+
+// --------- ВСПОМОГАТЕЛЬНЫЕ ТИПЫ  ---------
+public class FamilyMapRecord
+    {
+        public string BaseArticle { get; set; }
+        public string Category { get; set; }
+        public string Additional { get; set; }
+    }
 
     public static class ElementHelper
     {
@@ -703,4 +694,6 @@ namespace SpecificGerpaas.Core
             }
         }
     }
+
+
 }
